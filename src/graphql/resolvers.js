@@ -1,25 +1,46 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { AuthenticationError, ForbiddenError } from 'apollo-server-express'
 import { prisma } from '../prisma.js'
 
 export const resolvers = {
   Query: {
+    // Renvoie l'utilisateur connecté
     me: async (_, __, ctx) => {
       return ctx.user || null
     },
 
+    // Liste de tous les produits
     products: async () => {
       return prisma.product.findMany()
     },
 
+    // Détail d'un produit
     product: async (_, { id }) => {
       return prisma.product.findUnique({
         where: { id: parseInt(id, 10) },
       })
     },
 
+    // 🔍 Recherche de produits par mot-clé
+    searchProducts: async (_, { keyword }) => {
+      return prisma.product.findMany({
+        where: {
+          OR: [
+            { name: { contains: keyword, mode: 'insensitive' } },
+            { description: { contains: keyword, mode: 'insensitive' } },
+          ],
+        },
+      })
+    },
+
+    // Panier de l'utilisateur connecté
     myCart: async (_, __, ctx) => {
-      if (!ctx.user) return null
+      if (!ctx.user) {
+        throw new AuthenticationError(
+          'Vous devez être connecté pour voir votre panier'
+        )
+      }
 
       let cart = await prisma.cart.findUnique({
         where: { userId: ctx.user.id },
@@ -30,6 +51,7 @@ export const resolvers = {
         },
       })
 
+      // Si pas de panier → on le crée
       if (!cart) {
         cart = await prisma.cart.create({
           data: { userId: ctx.user.id },
@@ -51,9 +73,12 @@ export const resolvers = {
       }
     },
 
+    // Commandes de l'utilisateur connecté
     myOrders: async (_, __, ctx) => {
       if (!ctx.user) {
-        throw new Error('Non authentifié')
+        throw new AuthenticationError(
+          'Vous devez être connecté pour voir vos commandes'
+        )
       }
 
       return prisma.order.findMany({
@@ -67,6 +92,7 @@ export const resolvers = {
   },
 
   Mutation: {
+    // Inscription d'un utilisateur
     register: async (_, { name, email, password }) => {
       const existing = await prisma.user.findUnique({ where: { email } })
       if (existing) {
@@ -92,6 +118,7 @@ export const resolvers = {
       }
     },
 
+    // Connexion d'un utilisateur
     login: async (_, { email, password }) => {
       const user = await prisma.user.findUnique({ where: { email } })
       if (!user) {
@@ -120,9 +147,12 @@ export const resolvers = {
       }
     },
 
+    // Ajouter un produit au panier
     addToCart: async (_, { productId, quantity }, ctx) => {
       if (!ctx.user) {
-        throw new Error('Non authentifié')
+        throw new AuthenticationError(
+          'Vous devez être connecté pour ajouter au panier'
+        )
       }
 
       const product = await prisma.product.findUnique({
@@ -132,6 +162,7 @@ export const resolvers = {
         throw new Error('Produit introuvable')
       }
 
+      // Récupérer ou créer le panier
       let cart = await prisma.cart.findUnique({
         where: { userId: ctx.user.id },
       })
@@ -164,7 +195,7 @@ export const resolvers = {
         })
       }
 
-      // renvoyer le panier mis à jour
+      // Renvoi du panier mis à jour
       cart = await prisma.cart.findUnique({
         where: { userId: ctx.user.id },
         include: {
@@ -184,9 +215,12 @@ export const resolvers = {
       }
     },
 
+    // Valider une commande (checkout)
     checkout: async (_, __, ctx) => {
       if (!ctx.user) {
-        throw new Error('Non authentifié')
+        throw new AuthenticationError(
+          'Vous devez être connecté pour valider une commande'
+        )
       }
 
       const cart = await prisma.cart.findUnique({
@@ -242,9 +276,18 @@ export const resolvers = {
       })
     },
 
-    createProduct: async (_, { name, description, price, stockQuantity }, ctx) => {
-      if (!ctx.user || ctx.user.role !== 'ADMIN') {
-        throw new Error('Accès réservé aux admins')
+    // Création de produit (ADMIN seulement)
+    createProduct: async (
+      _,
+      { name, description, price, stockQuantity },
+      ctx
+    ) => {
+      if (!ctx.user) {
+        throw new AuthenticationError('Vous devez être connecté')
+      }
+
+      if (ctx.user.role !== 'ADMIN') {
+        throw new ForbiddenError('Accès réservé aux admins')
       }
 
       const product = await prisma.product.create({
@@ -260,7 +303,7 @@ export const resolvers = {
     },
   },
 
-  // Resolvers pour imbriquer les types
+  // Resolvers pour les types imbriqués
   Cart: {
     items: (parent) => parent.items,
     total: (parent) => parent.total,

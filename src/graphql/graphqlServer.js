@@ -37,6 +37,7 @@ export async function setupGraphQL(app) {
   server.applyMiddleware({
     app,
     path: '/graphql',
+    bodyParserConfig: false,
   })
 
   console.log('GraphQL prêt sur /graphql')

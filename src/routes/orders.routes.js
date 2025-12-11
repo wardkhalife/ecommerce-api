@@ -5,11 +5,28 @@ import { authMiddleware } from '../middleware/auth.middleware.js'
 const router = express.Router()
 
 // Créer une commande à partir du panier (checkout)
+// Créer une commande à partir du panier (checkout)
 router.post('/checkout', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id
+    
+    // --- 1. RÉCUPÉRATION DES CHAMPS D'ADRESSE REQUIS ---
+    const { 
+      shippingAddress, 
+      shippingCity, 
+      shippingPostalCode, 
+      deliveryMode 
+    } = req.body || {}
 
-    // récupérer le panier de l'utilisateur avec les produits
+    // --- 2. VALIDATION DES CHAMPS D'ADRESSE (SIMPLIFIÉE) ---
+    // Vous pouvez ajouter des validations plus strictes ici
+    if (!shippingAddress || !shippingCity || !shippingPostalCode) {
+      return res.status(400).json({ 
+        error: 'L\'adresse de livraison complète (adresse, ville, code postal) est obligatoire.' 
+      })
+    }
+    
+    // --- 3. DÉBUT DE LA LOGIQUE EXISTANTE ---
     const cart = await prisma.cart.findUnique({
       where: { userId },
       include: {
@@ -25,7 +42,6 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Panier vide, impossible de passer commande' })
     }
 
-    // calcul du total
     const totalAmount = cart.items.reduce((sum, item) => {
       return sum + item.quantity * item.product.price
     }, 0)
@@ -37,6 +53,12 @@ router.post('/checkout', authMiddleware, async (req, res) => {
           userId,
           totalAmount,
           status: 'PENDING',
+          // --- 4. INCLUSION DES ADRESSES ET DU MODE DE LIVRAISON ---
+          shippingAddress: shippingAddress,
+          shippingCity: shippingCity,
+          shippingPostalCode: shippingPostalCode,
+          // Utilisez le deliveryMode fourni, ou le défaut de Prisma si non fourni
+          deliveryMode: deliveryMode, 
         },
       })
 

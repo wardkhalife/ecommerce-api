@@ -113,11 +113,14 @@ router.post('/add', authMiddleware, async (req, res) => {
   }
 })
 
-// Retirer un produit du panier
+// Retirer un produit du panier (Décrémentation de la quantité)
 router.post('/remove', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id
     const { productId } = req.body || {}
+    // Optionnel : Vous pouvez ajouter une logique pour retirer plus d'un produit à la fois,
+    // mais pour l'instant, nous faisons un décrément de 1 comme demandé.
+    const quantityToRemove = 1 
 
     if (!productId) {
       return res.status(400).json({ error: 'productId est obligatoire' })
@@ -128,13 +131,14 @@ router.post('/remove', authMiddleware, async (req, res) => {
     })
 
     if (!cart) {
+      // Dans ce cas, techniquement, le panier n'existe pas, donc le produit n'est pas là.
       return res.status(404).json({ error: 'Panier introuvable' })
     }
 
     const item = await prisma.cartItem.findFirst({
       where: {
         cartId: cart.id,
-        productId,
+        productId: productId,
       },
     })
 
@@ -142,11 +146,32 @@ router.post('/remove', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Produit non présent dans le panier' })
     }
 
-    await prisma.cartItem.delete({
-      where: { id: item.id },
-    })
+    // NOUVELLE LOGIQUE DE GESTION
+    const newQuantity = item.quantity - quantityToRemove
 
-    res.json({ message: 'Produit retiré du panier' })
+    if (newQuantity <= 0) {
+      // 1. Si la nouvelle quantité est <= 0, supprimer l'article
+      await prisma.cartItem.delete({
+        where: { id: item.id },
+      })
+      
+      return res.json({ message: 'Produit retiré complètement du panier.' })
+
+    } else {
+      // 2. Sinon, décrémenter la quantité
+      const updatedItem = await prisma.cartItem.update({
+        where: { id: item.id },
+        data: {
+          quantity: newQuantity,
+        },
+      })
+      
+      return res.json({ 
+        message: 'Quantité du produit décrémentée.', 
+        item: updatedItem 
+      })
+    }
+
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Erreur serveur' })

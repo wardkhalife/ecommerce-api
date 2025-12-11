@@ -5,6 +5,7 @@ import dotenv from 'dotenv'
 import helmet from 'helmet'
 import rateLimit from 'express-rate-limit'
 import xss from 'xss'
+import path from 'path';
 
 import { prisma } from './prisma.js'
 import { authMiddleware } from './middleware/auth.middleware.js'
@@ -16,6 +17,8 @@ import ordersRouter from './routes/orders.routes.js'
 dotenv.config()
 
 const app = express()
+
+app.use(express.static(path.join(process.cwd(), 'public')));
 
 // 🔐 Sécurisation des headers HTTP
 app.use(

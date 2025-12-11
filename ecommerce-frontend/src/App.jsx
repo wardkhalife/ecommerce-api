@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 
 import Layout from "./components/Layout";
 
+// Pages user
 import ProductList from "./pages/ProductList";
 import Cart from "./pages/Cart";
 import Orders from "./pages/Orders";
@@ -12,19 +13,20 @@ import Checkout from "./pages/Checkout";
 import ProductDetails from "./pages/ProductDetails";
 import MapPoint from "./pages/MapPoint";
 
+// Admin
 import AdminRoute from "./components/AdminRoute";
 import AdminDashboard from "./pages/AdminDashboard";
 import RegisterAdmin from "./pages/RegisterAdmin";
+import AdminProducts from "./pages/AdminProducts";
 
 function AppRoutes() {
   const { user } = useAuth();
-
   const isAdmin = user?.role === "ADMIN";
 
   return (
     <Layout>
       <Routes>
-        {/* Page d'accueil → selon rôle */}
+        {/* ACCUEIL : redirection automatique */}
         <Route
           path="/"
           element={
@@ -38,7 +40,7 @@ function AppRoutes() {
           }
         />
 
-        {/* Pages publiques */}
+        {/* LOGIN */}
         <Route
           path="/login"
           element={
@@ -52,6 +54,7 @@ function AppRoutes() {
           }
         />
 
+        {/* REGISTER */}
         <Route
           path="/register"
           element={
@@ -65,7 +68,7 @@ function AppRoutes() {
           }
         />
 
-        {/* PAGES ADMIN (protégées) */}
+        {/* ROUTES ADMIN */}
         <Route
           path="/admin"
           element={
@@ -73,6 +76,15 @@ function AppRoutes() {
               <AdminDashboard />
             </AdminRoute>
           }
+        />
+
+        <Route
+          path="/admin/products"
+          element={
+            <AdminRoute>
+              <AdminProducts />
+            </AdminRoute>
+        }
         />
 
         <Route
@@ -84,19 +96,18 @@ function AppRoutes() {
           }
         />
 
-        {/* Pages protégées UTILISATEUR */}
+        {/* ROUTES USER */}
         <Route
           path="/products"
           element={user ? <ProductList /> : <Navigate to="/login" />}
         />
+
         <Route
           path="/product/:id"
           element={user ? <ProductDetails /> : <Navigate to="/login" />}
         />
-        <Route
-          path="/cart"
-          element={user ? <Cart /> : <Navigate to="/login" />}
-        />
+
+        <Route path="/cart" element={user ? <Cart /> : <Navigate to="/login" />} />
         <Route
           path="/orders"
           element={user ? <Orders /> : <Navigate to="/login" />}
@@ -105,10 +116,7 @@ function AppRoutes() {
           path="/checkout"
           element={user ? <Checkout /> : <Navigate to="/login" />}
         />
-        <Route
-          path="/map"
-          element={user ? <MapPoint /> : <Navigate to="/login" />}
-        />
+        <Route path="/map" element={user ? <MapPoint /> : <Navigate to="/login" />} />
       </Routes>
     </Layout>
   );

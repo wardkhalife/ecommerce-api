@@ -1,3 +1,4 @@
+// Navbar.jsx
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -22,8 +23,6 @@ export default function Navbar() {
           alignItems: "center",
         }}
       >
-
-        {/* Logo */}
         <Link
           to="/products"
           style={{
@@ -36,8 +35,11 @@ export default function Navbar() {
           ShopEZ
         </Link>
 
-        {/* Liens */}
         <div style={{ display: "flex", gap: "20px" }}>
+          {user && user.role === "ADMIN" && (
+            <Link to="/admin">Dashboard Admin</Link>
+          )}
+
           {user && (
             <>
               <Link to="/products">Produits</Link>

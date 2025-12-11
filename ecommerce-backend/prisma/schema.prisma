@@ -7,91 +7,161 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(CUSTOMER)
-  orders    Order[]
-  cart      Cart?
-  reviews   Review[]
+// ---------------- Enums ----------------
+
+enum Role {
+  CUSTOMER
+  ADMIN
 }
 
+enum WatchCategory {
+  LUXURY       // montres de luxe
+  SPORT        // montres sport
+  AUTOMATIC    // montres automatiques
+  SMART        // montres connectées
+}
+
+enum OrderStatus {
+  PENDING      // commande créée, en attente de paiement ou de traitement
+  PAID
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  INITIATED
+  SUCCESS
+  FAILED
+}
+
+enum PaymentMethod {
+  CARD
+  PAYPAL
+  BANK_TRANSFER
+}
+
+// ---------------- Modèles ----------------
+
+model User {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  role      Role      @default(CUSTOMER)
+
+  // relations
+  carts     Cart[]
+  orders    Order[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id          Int            @id @default(autoincrement())
+  name        String         // ex : "Rolex Submariner"
+  brand       String         // ex : "Rolex"
+  description String
+  price       Decimal        
+  stock       Int
+  imageUrl    String         // URL image
+  year        Int            // année du modèle
+  waterproof  Boolean        // true / false
+  category    WatchCategory  // LUXURY / SPORT / AUTOMATIC / SMART
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // relations
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
+}
+
+// Panier "courant" d’un user (on peut en garder un actif par user)
 model Cart {
-  id        Int         @id @default(autoincrement())
-  user      User        @relation(fields: [userId], references: [id])
-  userId    Int         @unique
-  items     CartItem[]
+  id         Int        @id @default(autoincrement())
+  user       User       @relation(fields: [userId], references: [id])
+  userId     Int
+
+  createdAt  DateTime   @default(now())
+  expiresAt  DateTime?  // pour gérer le timer 2 minutes côté backend si tu veux
+  isActive   Boolean    @default(true)
+
+  items      CartItem[]
 }
 
 model CartItem {
   id        Int      @id @default(autoincrement())
   cart      Cart     @relation(fields: [cartId], references: [id])
   cartId    Int
+
   product   Product  @relation(fields: [productId], references: [id])
   productId Int
+
   quantity  Int
 }
 
-model Product {
-  id            Int          @id @default(autoincrement())
-  name          String
-  description   String
-  price         Float
-  stockQuantity Int
-  category      Category?    @relation(fields: [categoryId], references: [id])
-  categoryId    Int?
-  reviews       Review[]
-  orderItems    OrderItem[]
-  cartItems     CartItem[]
-}
-
-model Category {
-  id        Int       @id @default(autoincrement())
-  name      String
-  products  Product[]
-}
-
-model Review {
-  id        Int      @id @default(autoincrement())
-  rating    Int
-  comment   String
-  product   Product  @relation(fields: [productId], references: [id])
-  productId Int
-  user      User     @relation(fields: [userId], references: [id])
-  userId    Int
-}
-
+// Commande validée
 model Order {
-  id          Int         @id @default(autoincrement())
-  user        User        @relation(fields: [userId], references: [id])
+  id          Int           @id @default(autoincrement())
+  user        User          @relation(fields: [userId], references: [id])
   userId      Int
-  status      OrderStatus @default(PENDING)
-  totalAmount Float
+
+  status      OrderStatus   @default(PENDING)
+  totalAmount Decimal       
+
+  // Infos de livraison saisies dans le formulaire
+  fullName    String
+  address     String
+  city        String
+  postalCode  String
+  phone       String
+
+  // Point relais choisi (optionnel : livraison à domicile possible)
+  pickupPoint PickupPoint?  @relation(fields: [pickupPointId], references: [id])
+  pickupPointId Int?
+
+  createdAt   DateTime      @default(now())
+
   items       OrderItem[]
-  createdAt   DateTime    @default(now())
+  payment     Payment?
 }
 
 model OrderItem {
   id        Int      @id @default(autoincrement())
   order     Order    @relation(fields: [orderId], references: [id])
   orderId   Int
+
   product   Product  @relation(fields: [productId], references: [id])
   productId Int
+
   quantity  Int
-  unitPrice Float
+  unitPrice Decimal  
 }
 
-enum Role {
-  ADMIN
-  CUSTOMER
+// Paiement lié à la commande (simulation)
+model Payment {
+  id           Int            @id @default(autoincrement())
+  order        Order          @relation(fields: [orderId], references: [id])
+  orderId      Int            @unique
+
+  method       PaymentMethod
+  status       PaymentStatus  @default(INITIATED)
+  transactionId String?       // id renvoyé par le provider (simulé)
+
+  createdAt    DateTime       @default(now())
 }
 
-enum OrderStatus {
-  PENDING
-  PAID
-  SHIPPED
-  DELIVERED
-  CANCELLED
+// Points relais pour la MAP
+model PickupPoint {
+  id        Int       @id @default(autoincrement())
+  name      String
+  address   String
+  city      String
+  postalCode String
+  latitude  Float
+  longitude Float
+
+  orders    Order[]
 }

@@ -1,0 +1,88 @@
+/* Reset & base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+  background: #f5f5f5;
+  color: #222;
+  min-height: 100vh;
+}
+
+/* Navbar */
+.navbar {
+  width: 100%;
+  padding: 18px 30px;
+  background: white;
+  border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar a {
+  margin-left: 15px;
+  font-size: 15px;
+  text-decoration: none;
+  color: #007bff;
+}
+
+.navbar a:hover {
+  text-decoration: underline;
+}
+
+/* AUTH PAGES (Login & Register) */
+.auth-container {
+  width: 400px;
+  margin: 60px auto;
+  padding: 30px;
+}
+
+.auth-title {
+  font-size: 28px;
+  font-weight: bold;
+  margin-bottom: 25px;
+  color: #111;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-form input {
+  padding: 10px 12px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.auth-form input:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.auth-form button {
+  margin-top: 10px;
+  padding: 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.auth-form button:hover {
+  background: #005fcc;
+}
+
+.auth-error {
+  color: #d70000;
+  margin-bottom: 10px;
+  font-size: 14px;
+}

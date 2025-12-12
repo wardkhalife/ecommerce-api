@@ -14,7 +14,14 @@ router.get('/my', authMiddleware, async (req, res) => {
       include: {
         items: {
           include: {
-            product: true,
+            product: {
+              // AJOUTER UNE INCLUSION IMBRIQUÉE pour les images du produit
+              include: {
+                images: {
+                  orderBy: { position: 'asc' }, // Tri optionnel
+                }
+              }
+            },
           },
         },
       },

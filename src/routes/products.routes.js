@@ -63,7 +63,11 @@ router.get('/:id', async (req, res) => {
       where: { id },
       include: { 
         category: true, 
-        reviews: true, 
+        reviews: {include: {
+          user: { // <--- ASSUREZ-VOUS QUE CETTE INCLUSION EST PRÉSENTE
+            select: { id: true, name: true, email: true } // Selectionne les champs nécessaires
+          }
+        }}, 
         images: { orderBy: { position: 'asc' } } 
       },
     })

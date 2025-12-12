@@ -4,8 +4,6 @@ import { authMiddleware } from '../middleware/auth.middleware.js'
 
 const router = express.Router()
 
-// Créer une commande à partir du panier (checkout)
-// Créer une commande à partir du panier (checkout)
 router.post('/checkout', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.id
@@ -18,15 +16,15 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       deliveryMode 
     } = req.body || {}
 
-    // --- 2. VALIDATION DES CHAMPS D'ADRESSE (SIMPLIFIÉE) ---
-    // Vous pouvez ajouter des validations plus strictes ici
+    // --- 2. VALIDATION DES CHAMPS D'ADRESSE ---
     if (!shippingAddress || !shippingCity || !shippingPostalCode) {
       return res.status(400).json({ 
         error: 'L\'adresse de livraison complète (adresse, ville, code postal) est obligatoire.' 
       })
     }
     
-    // --- 3. DÉBUT DE LA LOGIQUE EXISTANTE ---
+    // --- 3. RÉCUPÉRATION DU PANIER (avec produits) ---
+    // Inclure les images n'est pas nécessaire ici, mais on s'assure d'avoir le prix et la stockQuantity
     const cart = await prisma.cart.findUnique({
       where: { userId },
       include: {
@@ -43,26 +41,51 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     }
 
     const totalAmount = cart.items.reduce((sum, item) => {
+      // Pour être précis, on devrait ajouter le coût de livraison ici
       return sum + item.quantity * item.product.price
     }, 0)
 
-    // créer la commande + items dans une transaction
+
+    // Créer la commande + items + déstockage dans une TRANSACTION
     const order = await prisma.$transaction(async (tx) => {
+      
+      // A. VÉRIFIER ET DÉCRÉMENTER LE STOCK POUR CHAQUE ARTICLE
+      for (const item of cart.items) {
+        const product = item.product;
+        const requestedQuantity = item.quantity;
+        
+        if (product.stockQuantity < requestedQuantity) {
+          // Lancer une erreur qui annulera la transaction
+          throw new Error(`Stock insuffisant pour le produit: ${product.name}. Stock disponible: ${product.stockQuantity}`);
+        }
+
+        // Décrémenter le stock dans la transaction (tx)
+        await tx.product.update({
+          where: { id: product.id },
+          data: {
+            stockQuantity: {
+              decrement: requestedQuantity,
+            },
+          },
+        });
+      }
+      // 
+      
+
+      // B. CRÉATION DE LA COMMANDE
       const newOrder = await tx.order.create({
         data: {
           userId,
           totalAmount,
           status: 'PENDING',
-          // --- 4. INCLUSION DES ADRESSES ET DU MODE DE LIVRAISON ---
           shippingAddress: shippingAddress,
           shippingCity: shippingCity,
           shippingPostalCode: shippingPostalCode,
-          // Utilisez le deliveryMode fourni, ou le défaut de Prisma si non fourni
           deliveryMode: deliveryMode, 
         },
       })
 
-      // créer les OrderItem
+      // C. CRÉATION DES ORDER ITEMS
       const orderItemsData = cart.items.map((item) => ({
         orderId: newOrder.id,
         productId: item.productId,
@@ -74,7 +97,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
         data: orderItemsData,
       })
 
-      // vider le panier
+      // D. VIDAGE DU PANIER
       await tx.cartItem.deleteMany({
         where: { cartId: cart.id },
       })
@@ -82,7 +105,7 @@ router.post('/checkout', authMiddleware, async (req, res) => {
       return newOrder
     })
 
-    // recharger la commande avec les détails
+    // recharger la commande avec les détails (hors transaction)
     const fullOrder = await prisma.order.findUnique({
       where: { id: order.id },
       include: {
@@ -100,6 +123,13 @@ router.post('/checkout', authMiddleware, async (req, res) => {
     res.status(201).json(fullOrder)
   } catch (err) {
     console.error(err)
+    
+    // Si l'erreur provient de la transaction (comme le stock insuffisant),
+    // renvoyer un message clair au front-end.
+    if (err.message && err.message.includes('Stock insuffisant')) {
+        return res.status(400).json({ error: err.message });
+    }
+
     res.status(500).json({ error: 'Erreur lors du checkout' })
   }
 })
